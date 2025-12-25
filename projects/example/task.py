@@ -16,7 +16,7 @@ class Task(InferenceTask):
     def __init__(self):
         self._db = sqlite3.connect(path.join(dirname(__file__), "db.sqlite"))
         self._cur = self._db.cursor()
-        self.dataset = iter(load_dataset("nvidia/Nemotron-Instruction-Following-Chat-v1", streaming=True)["chat_if"])
+        self.dataset = load_dataset("nvidia/Nemotron-Instruction-Following-Chat-v1", streaming=True)["chat_if"]
         self._cur.execute('CREATE TABLE IF NOT EXISTS result(id INT PRIMARY KEY,content TEXT);')
         load_dotenv(path.join(dirname(__file__), ".env"))
         self._client = AsyncOpenAI(
