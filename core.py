@@ -2,11 +2,11 @@ from abc import ABC, abstractmethod
 from asyncio import Semaphore
 
 import tqdm
-from datasets import IterableDataset
+from datasets import IterableDataset, Dataset
 
 
 class InferenceTask(ABC):
-    dataset: IterableDataset
+    dataset: IterableDataset | Dataset
 
     @abstractmethod
     def __init__(self):
