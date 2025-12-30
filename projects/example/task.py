@@ -1,12 +1,13 @@
 import json
 import os
 import sqlite3
+import asyncio
 from os import path
 from os.path import dirname
 import tqdm
 from datasets import load_dataset
 from dotenv import load_dotenv
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, OpenAIError
 from core import InferenceTask
 from asyncio import Semaphore
 
@@ -55,10 +56,21 @@ class Task(InferenceTask):
                 if output_json[-1]["content"] == "":
                     output_json.append({"role": "assistant", "content": ""})
                     continue
-                resp = await self._client.chat.completions.create(
-                    messages=output_json,
-                    model=os.environ["MODEL_NAME"]
-                )
+                sleep_time = 1.0
+                while True:
+                    try:
+                        resp = await self._client.chat.completions.create(
+                        messages=output_json,
+                        model=os.environ["MODEL_NAME"]
+                        )
+                    except OpenAIError as e:
+                        if sleep_time > 16.0:
+                            output_json.append({"role": "assistant", "content": ""})
+                            continue
+                        print(f"OpenAI API Error: {e}")
+                        await asyncio.sleep(sleep_time)
+                        sleep_time *= 2
+
                 output_json.append(resp.choices[0].message.to_dict())
             # print(json.dumps(output_json, ensure_ascii=False))
             output_json = output_json[2::2]
