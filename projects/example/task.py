@@ -48,7 +48,7 @@ class Task(InferenceTask):
                                " - 人名は翻訳せず、原文の表記のまま用いること。\n"
                                " - 原文に忠実に翻訳し、原文に存在する情報を欠落させたり、原文に書いていないことを勝手に付け加えないこと。\n"
                                " - 原文の雰囲気・文脈に基づいて翻訳すること。\n"
-                               " - 翻訳済みの文章のみを出力し、余計な説明や注釈を加えないこと。"
+                               " - 翻訳済みの**日本語**の文章のみを出力し、余計な説明や注釈を加えないこと。"
                 }
             ]
             for message in input_json:
@@ -62,19 +62,17 @@ class Task(InferenceTask):
                 while True:
                     try:
                         resp = await self._client.chat.completions.create(
-                        messages=output_json,
-                        model=os.environ["MODEL_NAME"]
+                            messages=output_json,
+                            model=os.environ["MODEL_NAME"]
                         )
-                        break
+                        output_json.append(resp.choices[0].message.to_dict())
                     except OpenAIError as e:
                         if sleep_time > 16.0:
-                            output_json.append({"role": "assistant", "content": "<-- 空のダミー出力 -->"})
+                            output_json.append({"role": "assistant","content": "<-- 空のダミー出力 -->"})
                             break
                         print(f"OpenAI API Error: {e}")
                         await asyncio.sleep(sleep_time)
                         sleep_time *= 2
-
-                output_json.append(resp.choices[0].message.to_dict())
             # print(json.dumps(output_json, ensure_ascii=False))
             output_json = output_json[2::2]
             for i in range(input_json.__len__()):
