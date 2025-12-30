@@ -63,7 +63,11 @@ class Task(InferenceTask):
                     try:
                         resp = await self._client.chat.completions.create(
                             messages=output_json,
-                            model=os.environ["MODEL_NAME"]
+                            model=os.environ["MODEL_NAME"],
+                            extra_body={
+                                "separate_reasoning": True
+                            },
+                            reasoning_effort="high"
                         )
                         output_json.append(resp.choices[0].message.to_dict())
                     except OpenAIError as e:
