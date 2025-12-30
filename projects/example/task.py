@@ -70,6 +70,7 @@ class Task(InferenceTask):
                             reasoning_effort="high"
                         )
                         output_json.append(resp.choices[0].message.to_dict())
+                        break
                     except OpenAIError as e:
                         if sleep_time > 16.0:
                             output_json.append({"role": "assistant","content": "<-- 空のダミー出力 -->"})
