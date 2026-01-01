@@ -8,7 +8,7 @@ import tqdm
 from datasets import load_dataset
 from dotenv import load_dotenv
 from openai import AsyncOpenAI, OpenAIError
-from openai.types.chat import ChatCompletionSystemMessageParam, ChatCompletionUserMessageParam
+from openai.types.chat import ChatCompletionUserMessageParam
 
 from core import InferenceTask
 from asyncio import Semaphore
