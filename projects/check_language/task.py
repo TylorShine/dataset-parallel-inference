@@ -64,7 +64,7 @@ class Task(InferenceTask):
             resp: ChatCompletion
             while True:
                 try:
-                    resp = await self._client.chat.completions.create(
+                    resp = await self._client.chat.completions.parse(
                         messages=prompt,
                         model=os.environ["MODEL_NAME"],
                         extra_body={
