@@ -48,10 +48,10 @@ class Task(InferenceTask):
                 }, {
                     "role": "user",
                     "content": "=======翻訳前=============\n"
-                               + "\n".join([item["content"] if item["content"] is None else "" for item in json.loads(source)]) +
+                               + "\n".join([item["content"] or "" for item in json.loads(source)]) +
                                "=========================\n"
                                "\n=======翻訳後=============\n"
-                               + "\n".join([item["content"] if item["content"] is None else "" for item in json.loads(content)]) +
+                               + "\n".join([item["content"] or "" for item in json.loads(content)]) +
                                "\n=========================\n"
                                ""
                 }
