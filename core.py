@@ -6,7 +6,7 @@ from datasets import IterableDataset, Dataset
 
 
 class InferenceTask(ABC):
-    dataset: IterableDataset | Dataset
+    dataset: IterableDataset | Dataset | range
 
     @abstractmethod
     def __init__(self):
