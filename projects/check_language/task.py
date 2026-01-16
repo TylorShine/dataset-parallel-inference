@@ -77,10 +77,10 @@ class Task(InferenceTask):
                         raise OpenAIError("Failed to parse response: ", resp.choices[0].message)
                     break
                 except OpenAIError as e:
-                    if sleep_time > 16.0:
+                    if sleep_time > 32.0:
+                        print(f"OpenAI API Error: {e}")
                         bar.update(1)
                         return
-                    print(f"OpenAI API Error: {e}")
                     await asyncio.sleep(sleep_time)
                     sleep_time *= 2
             # print(json.dumps(output_json, ensure_ascii=False))
