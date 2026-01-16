@@ -73,6 +73,8 @@ class Task(InferenceTask):
                         reasoning_effort="medium",
                         response_format=IsAppropriate
                     )
+                    if resp.choices[0].message.parsed is None:
+                        raise OpenAIError("Failed to parse response: ", resp.choices[0].message)
                     break
                 except OpenAIError as e:
                     if sleep_time > 16.0:
