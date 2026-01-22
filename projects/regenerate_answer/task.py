@@ -5,11 +5,11 @@ import asyncio
 from os import path
 from os.path import dirname
 import tqdm
-from datasets import load_dataset
+
 from dotenv import load_dotenv
 from openai import AsyncOpenAI, OpenAIError
-from openai.types.chat import ChatCompletionUserMessageParam, ChatCompletionSystemMessageParam, ChatCompletion
-from pydantic import BaseModel
+from openai.types.chat import ChatCompletionUserMessageParam, ChatCompletionSystemMessageParam
+
 
 from core import InferenceTask
 from asyncio import Semaphore
@@ -50,7 +50,7 @@ class Task(InferenceTask):
                     translated_messages.append(message.copy())
                     continue
                 sleep_time = 4.0
-                resp:ChatCompletion
+
                 while True:
                     try:
                         chat_string = "======誤っている出力に対する指摘=======\n\n" + \
@@ -68,13 +68,9 @@ class Task(InferenceTask):
                                           zip(original_messages, translated_messages)
                                       ])) + "\n\n\n\n" + \
                                       "\n===文章A==========================\n\n\n" + str(message["content"])
+
                         # print(f"{chat_string}")
-
-                        class AnswerClass(BaseModel):
-                            reason_and_important_point:str
-                            translated_text:str
-
-                        resp = await self._client.chat.completions.parse(
+                        resp = await self._client.chat.completions.create(
                             messages=[
                                 ChatCompletionSystemMessageParam(
                                     content="外国語の文章Aが与えられます。その文章を全て日本語に翻訳してください。なお、以下の条件を**遵守**すること。\n" + \
@@ -91,11 +87,9 @@ class Task(InferenceTask):
                                 )],
                             model=os.environ["MODEL_NAME"],
                             extra_body={"separate_reasoning": True},
-                            reasoning_effort="none",
-                            response_format=AnswerClass
+                            reasoning_effort="low",
                         )
-                        if resp.choices[0].message.parsed is None:
-                            raise OpenAIError("Failed to parse response: ", resp.choices[0].message)
+
                         translated_messages.append(resp.choices[0].message.to_dict())
                         break
                     except OpenAIError as e:
@@ -108,11 +102,9 @@ class Task(InferenceTask):
             # print(json.dumps(translated_messages, ensure_ascii=False))
             for i in range(input_json.__len__()):
                 translated_messages[i].update(role=input_json[i]["role"])
-        self._cur.execute("REPLACE INTO regenerate_answer(id, content,reason) VALUES (?,?,?);", (
+        self._cur.execute("REPLACE INTO regenerate_answer(id, content) VALUES (?,?);", (
             data,
-            resp.choices[0].message.parsed.translated_text,
-            resp.choices[0].message.parsed.reason_and_important_point
-        ),
-                          )
+            json.dumps(translated_messages, ensure_ascii=False)),
+        )
         self._db.commit()
         bar.update(1)
