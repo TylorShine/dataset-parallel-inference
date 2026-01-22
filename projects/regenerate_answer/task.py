@@ -16,15 +16,15 @@ from asyncio import Semaphore
 
 class Task(InferenceTask):
     def __init__(self):
-        self._db = sqlite3.connect(path.join(dirname(__file__), "db.sqlite"))
+        self._db = sqlite3.connect(path.join(dirname(__file__), "..", "gpt_oss", "db.sqlite"))
         self._cur = self._db.cursor()
         self._cur.execute("CREATE TABLE IF NOT EXISTS regenerate_answer(id INT PRIMARY KEY,content TEXT);")
-        self.dataset = range(self._cur.execute("SELECT COUNT(*) FROM check_language WHERE appropriate = FALSE;").fetchone()[0])
+        self.dataset = [row[0] for row in self._cur.execute("SELECT id FROM check_language WHERE appropriate = 0;").fetchall()]
         load_dotenv(path.join(dirname(__file__), ".env"))
         self._client = AsyncOpenAI(api_key=os.environ["API_KEY"], base_url=os.environ["BASE_URL"], timeout=None)
 
     def get_length(self) -> int:
-        return self._cur.execute("SELECT COUNT(*) FROM check_language WHERE appropriate = FALSE;").fetchone()[0]
+        return len(self.dataset)
 
     def __del__(self):
         self._db.commit()
@@ -32,12 +32,12 @@ class Task(InferenceTask):
         self._db.close()
 
     async def process(self, data, order: int, sem: Semaphore, bar: tqdm.tqdm):
-        # id列に order の値が存在するか確認、したらスキップ
-        if self._cur.execute("SELECT COUNT(*) FROM regenerate_answer WHERE id=?;", (order,)).fetchone()[0] > 0:
+        # id列に data の値が存在するか確認、したらスキップ
+        if self._cur.execute("SELECT COUNT(*) FROM regenerate_answer WHERE id=?;", (data,)).fetchone()[0] > 0:
             bar.update(1)
             return
         async with sem:
-            input_json = json.loads(self._cur.execute("SELECT source FROM result WHERE id = ?;",(order,)).fetchone()[0])
+            input_json = json.loads(self._cur.execute("SELECT source FROM result WHERE id = ?;",(data,)).fetchone()[0])
 
             original_messages = []
             translated_messages = []
@@ -51,9 +51,9 @@ class Task(InferenceTask):
                 while True:
                     try:
                         chat_string = "======誤っている出力とその説明=======\n\n" + \
-                            "\n".join([_cont["content"] or "" for _cont in json.loads(self._cur.execute("SELECT content FROM result WHERE id = ?;", (order,)).fetchone()[0])]) + \
+                            "\n".join([_cont["content"] or "" for _cont in json.loads(self._cur.execute("SELECT content FROM result WHERE id = ?;", (data,)).fetchone()[0])]) + \
                             "\n\n\n" + \
-                            self._cur.execute("SELECT reason FROM check_language WHERE id = ?;",(order,)).fetchone()[0] + \
+                            self._cur.execute("SELECT reason FROM check_language WHERE id = ?;",(data,)).fetchone()[0] + \
                             "\n===============================\n\n\n" + \
                             "過去の会話履歴(一貫性のある翻訳のためのコンテキスト):\n\n\n" + \
                             "\n\n\n".join(filter(None,[
@@ -97,7 +97,7 @@ class Task(InferenceTask):
             for i in range(input_json.__len__()):
                 translated_messages[i].update(role=input_json[i]["role"])
         self._cur.execute("REPLACE INTO regenerate_answer(id, content) VALUES (?,?);",
-            (order,
+            (data,
              json.dumps(translated_messages, ensure_ascii=False)),
         )
         self._db.commit()
