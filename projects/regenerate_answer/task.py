@@ -8,7 +8,7 @@ import tqdm
 from datasets import load_dataset
 from dotenv import load_dotenv
 from openai import AsyncOpenAI, OpenAIError
-from openai.types.chat import ChatCompletionUserMessageParam
+from openai.types.chat import ChatCompletionUserMessageParam, ChatCompletionSystemMessageParam
 
 from core import InferenceTask
 from asyncio import Semaphore
@@ -19,12 +19,13 @@ class Task(InferenceTask):
         self._db = sqlite3.connect(path.join(dirname(__file__), "..", "gpt_oss", "db.sqlite"))
         self._cur = self._db.cursor()
         self._cur.execute("CREATE TABLE IF NOT EXISTS regenerate_answer(id INT PRIMARY KEY,content TEXT);")
-        self.dataset = [row[0] for row in self._cur.execute("SELECT id FROM check_language WHERE appropriate = 0;").fetchall()]
+        self.dataset = [row[0] for row in
+                        self._cur.execute("SELECT id FROM check_language WHERE appropriate = 0;").fetchall()]
         load_dotenv(path.join(dirname(__file__), ".env"))
         self._client = AsyncOpenAI(api_key=os.environ["API_KEY"], base_url=os.environ["BASE_URL"], timeout=None)
 
     def get_length(self) -> int:
-        return len(self.dataset)
+        return self.dataset.__len__()
 
     def __del__(self):
         self._db.commit()
@@ -37,7 +38,7 @@ class Task(InferenceTask):
             bar.update(1)
             return
         async with sem:
-            input_json = json.loads(self._cur.execute("SELECT source FROM result WHERE id = ?;",(data,)).fetchone()[0])
+            input_json = json.loads(self._cur.execute("SELECT source FROM result WHERE id = ?;", (data,)).fetchone()[0])
 
             original_messages = []
             translated_messages = []
@@ -50,36 +51,38 @@ class Task(InferenceTask):
                 sleep_time = 4.0
                 while True:
                     try:
-                        chat_string = "======誤っている出力とその説明=======\n\n" + \
-                            "\n".join([_cont["content"] or "" for _cont in json.loads(self._cur.execute("SELECT content FROM result WHERE id = ?;", (data,)).fetchone()[0])]) + \
-                            "\n\n\n" + \
-                            self._cur.execute("SELECT reason FROM check_language WHERE id = ?;",(data,)).fetchone()[0] + \
-                            "\n===============================\n\n\n" + \
-                            "過去の会話履歴(一貫性のある翻訳のためのコンテキスト):\n\n\n" + \
-                            "\n\n\n".join(filter(None,[
-                            f"===={orig['role']}=============\n" +
-                            (orig['content'] or "") +
-                            "\n\n-------↓↓↓↓↓↓-------\n\n" +
-                            (trans['content'] or "") +
-                            "\n============================="
-                            if (orig["content"] or "") != "" else None for orig, trans in
-                            zip(original_messages, translated_messages)
-                        ])) + "\n\n\n\n" + \
-                        "以下に外国語の文章Aが与えられます。その文章を全て日本語に翻訳してください。なお、以下の条件を**遵守**すること。\n" + \
-                        "\n" + \
-                        " - 人名については翻訳せず、原文での表記のまま書くこと。\n" + \
-                        " - 原文に忠実に翻訳し、原文に存在する情報を欠落させたり、書かれていないことを付け加えないこと。\n" + \
-                        " - 原文の雰囲気や文脈に基づいて翻訳すること。\n" + \
-                        " - 翻訳済みの文章のみを出力し、余計な説明や注釈を加えないこと。\n\n" + \
-                        "\n===文章A==========================\n\n\n" + str(message["content"])
+                        chat_string = "======誤っている出力に対する指摘=======\n\n" + \
+                                      self._cur.execute("SELECT reason FROM check_language WHERE id = ?;",
+                                                        (data,)).fetchone()[0] + \
+                                      "\n===============================\n\n\n" + \
+                                      "過去の会話履歴(一貫性のある翻訳のためのコンテキスト):\n\n\n" + \
+                                      "\n\n\n".join(filter(None, [
+                                          f"===={orig['role']}=============\n" +
+                                          (orig['content'] or "") +
+                                          "\n\n-------↓↓↓↓↓↓-------\n\n" +
+                                          (trans['content'] or "") +
+                                          "\n============================="
+                                          if (orig["content"] or "") != "" else None for orig, trans in
+                                          zip(original_messages, translated_messages)
+                                      ])) + "\n\n\n\n" + \
+                                      "\n===文章A==========================\n\n\n" + str(message["content"])
                         # print(f"{chat_string}")
 
                         resp = await self._client.chat.completions.create(
                             messages=[
-                            ChatCompletionUserMessageParam(
-                                content=chat_string,
-                                role="user"
-                            )],
+                                ChatCompletionSystemMessageParam(
+                                    content="外国語の文章Aが与えられます。その文章を全て日本語に翻訳してください。なお、以下の条件を**遵守**すること。\n" + \
+                                            "\n" + \
+                                            " - 人名については翻訳せず、原文での表記のまま書くこと。\n" + \
+                                            " - 原文に忠実に翻訳し、原文に存在する情報を欠落させたり、書かれていないことを付け加えないこと。\n" + \
+                                            " - 原文の雰囲気や文脈に基づいて翻訳すること。\n" + \
+                                            " - 翻訳済みの文章のみを出力し、余計な説明や注釈を加えないこと。\n\n",
+                                    role="system"
+                                ),
+                                ChatCompletionUserMessageParam(
+                                    content=chat_string,
+                                    role="user"
+                                )],
                             model=os.environ["MODEL_NAME"],
                             extra_body={"separate_reasoning": True},
                             reasoning_effort="medium",
@@ -96,9 +99,9 @@ class Task(InferenceTask):
             # print(json.dumps(translated_messages, ensure_ascii=False))
             for i in range(input_json.__len__()):
                 translated_messages[i].update(role=input_json[i]["role"])
-        self._cur.execute("REPLACE INTO regenerate_answer(id, content) VALUES (?,?);",
-            (data,
-             json.dumps(translated_messages, ensure_ascii=False)),
-        )
+        self._cur.execute("REPLACE INTO regenerate_answer(id, content) VALUES (?,?);", (
+            data,
+            json.dumps(translated_messages, ensure_ascii=False)),
+                          )
         self._db.commit()
         bar.update(1)
