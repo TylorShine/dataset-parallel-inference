@@ -93,7 +93,7 @@ class Task(InferenceTask):
                         print(f"OpenAI API Error: {e}")
                         await asyncio.sleep(sleep_time)
                         sleep_time *= 2
-            # print(json.dumps(output_json, ensure_ascii=False))
+            # print(json.dumps(translated_messages, ensure_ascii=False))
             for i in range(input_json.__len__()):
                 translated_messages[i].update(role=input_json[i]["role"])
         self._cur.execute("REPLACE INTO regenerate_answer(id, content) VALUES (?,?);",
