@@ -74,7 +74,7 @@ class Task(InferenceTask):
                             reason_and_important_point:str
                             translated_text:str
 
-                        resp = await self._client.chat.completions.create(
+                        resp = await self._client.chat.completions.parse(
                             messages=[
                                 ChatCompletionSystemMessageParam(
                                     content="外国語の文章Aが与えられます。その文章を全て日本語に翻訳してください。なお、以下の条件を**遵守**すること。\n" + \
