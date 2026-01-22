@@ -10,9 +10,19 @@ from dotenv import load_dotenv
 from openai import AsyncOpenAI, OpenAIError
 from openai.types.chat import ChatCompletionUserMessageParam, ChatCompletionSystemMessageParam
 
-
 from core import InferenceTask
 from asyncio import Semaphore
+
+
+def clean_reason_text(text: str) -> str:
+    lowered = (text or "").lower()
+    keywords = ("verdict", "boolean", "therefore", "answer", "result", "decision")
+    kept_lines = []
+    for line in lowered.splitlines():
+        if "false" in line and any(keyword in line for keyword in keywords):
+            continue
+        kept_lines.append(line)
+    return "\n".join(kept_lines)
 
 
 class Task(InferenceTask):
@@ -53,9 +63,11 @@ class Task(InferenceTask):
 
                 while True:
                     try:
+                        reason_text = clean_reason_text(
+                            self._cur.execute("SELECT reason FROM check_language WHERE id = ?;", (data,), ).fetchone()[0]
+                        )
                         chat_string = "======誤っている出力に対する指摘=======\n\n" + \
-                                      self._cur.execute("SELECT reason FROM check_language WHERE id = ?;",
-                                                        (data,)).fetchone()[0] + \
+                                      reason_text + \
                                       "\n===============================\n\n\n" + \
                                       "過去の会話履歴(一貫性のある翻訳のためのコンテキスト):\n\n\n" + \
                                       "\n\n\n".join(filter(None, [
@@ -91,7 +103,7 @@ class Task(InferenceTask):
                             extra_body={"separate_reasoning": True},
                             reasoning_effort="medium",
                         )
-# '{"callable": "80049556000000000000008c2a73676c616e672e7372742e73616d706c696e672e637573746f6d5f6c6f6769745f70726f636573736f72948c23476c6d344d6f655468696e6b696e674275646765744c6f67697450726f636573736f729493942e"}'
+                        # '{"callable": "80049556000000000000008c2a73676c616e672e7372742e73616d706c696e672e637573746f6d5f6c6f6769745f70726f636573736f72948c23476c6d344d6f655468696e6b696e674275646765744c6f67697450726f636573736f729493942e"}'
                         translated_messages.append(resp.choices[0].message.to_dict())
                         break
                     except OpenAIError as e:
