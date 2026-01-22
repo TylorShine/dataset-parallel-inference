@@ -92,7 +92,7 @@ class Task(InferenceTask):
                                             " - 原文の雰囲気や文脈に基づいて翻訳すること。\n" + \
                                             " - 翻訳済みの文章のみを出力し、余計な説明や注釈を加えないこと。\n"
                                             " - 外国語が要件である場合にはそれに従い、必ずしも翻訳する必要があるわけではない。\n"
-                                            " - 会話履歴を参照し、一貫性のある・辻褄の合う・**会話として正しい**文章を生成すること。\n",
+                                            " - 会話履歴を参照し、一貫性のある・辻褄の合う・**会話のやりとりとして正しい**文章を生成すること。\n",
                                     role="system"
                                 ),
                                 ChatCompletionUserMessageParam(
@@ -101,7 +101,7 @@ class Task(InferenceTask):
                                 )],
                             model=os.environ["MODEL_NAME"],
                             extra_body={"separate_reasoning": True},
-                            reasoning_effort="high",
+                            reasoning_effort="medium",
                         )
                         # '{"callable": "80049556000000000000008c2a73676c616e672e7372742e73616d706c696e672e637573746f6d5f6c6f6769745f70726f636573736f72948c23476c6d344d6f655468696e6b696e674275646765744c6f67697450726f636573736f729493942e"}'
                         translated_messages.append(resp.choices[0].message.to_dict())
