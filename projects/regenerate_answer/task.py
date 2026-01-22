@@ -38,7 +38,7 @@ class Task(InferenceTask):
         if self._cur.execute("SELECT COUNT(*) FROM regenerate_answer WHERE id=?;", (data,)).fetchone()[0] > 0:
             bar.update(1)
             return
-        async with sem:
+        async with ((sem)):
             input_json = json.loads(self._cur.execute("SELECT source FROM result WHERE id = ?;", (data,)).fetchone()[0])
 
             original_messages = []
@@ -73,12 +73,13 @@ class Task(InferenceTask):
                         resp = await self._client.chat.completions.create(
                             messages=[
                                 ChatCompletionSystemMessageParam(
-                                    content="外国語の文章Aが与えられます。その文章を全て日本語に翻訳してください。なお、以下の条件を**遵守**すること。\n" + \
+                                    content="外国語の文章Aが与えられます。誤りの指摘を参考にして、その文章を適切に日本語に翻訳してください。なお、以下の条件を**遵守**すること。\n" + \
                                             "\n" + \
-                                            " - 人名については翻訳せず、原文での表記のまま書くこと。\n" + \
-                                            " - 原文に忠実に翻訳し、原文に存在する情報を欠落させたり、書かれていないことを付け加えないこと。\n" + \
+                                            " - 人名については翻訳せず原文での表記のまま書くこと。\n" + \
+                                            " - 原文に忠実に翻訳し原文に存在する情報を欠落させたり書かれていないことを付け加えないこと。\n" + \
                                             " - 原文の雰囲気や文脈に基づいて翻訳すること。\n" + \
-                                            " - 翻訳済みの文章のみを出力し、余計な説明や注釈を加えないこと。\n\n",
+                                            " - 翻訳済みの文章のみを出力し、余計な説明や注釈を加えないこと。\n"
+                                            " - 外国語が要件である場合にはそれに従うこと。\n",
                                     role="system"
                                 ),
                                 ChatCompletionUserMessageParam(
@@ -87,9 +88,9 @@ class Task(InferenceTask):
                                 )],
                             model=os.environ["MODEL_NAME"],
                             extra_body={"separate_reasoning": True},
-                            reasoning_effort="low",
+                            reasoning_effort="medium",
                         )
-
+# '{"callable": "80049556000000000000008c2a73676c616e672e7372742e73616d706c696e672e637573746f6d5f6c6f6769745f70726f636573736f72948c23476c6d344d6f655468696e6b696e674275646765744c6f67697450726f636573736f729493942e"}'
                         translated_messages.append(resp.choices[0].message.to_dict())
                         break
                     except OpenAIError as e:
