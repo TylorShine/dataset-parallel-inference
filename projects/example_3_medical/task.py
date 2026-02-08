@@ -30,7 +30,7 @@ class Task(InferenceTask):
 
     def get_length(self) -> int:
         # streaming==Falseと仮定
-        return sum(map(len, self.dataset.values()))
+        return len(self.dataset)
 
     def __del__(self):
         self._db.commit()
