@@ -28,11 +28,19 @@ async def main():
     semaphore = Semaphore(value=args.concurrency)
     bar = tqdm.tqdm(total=task.get_length())
     task_queue = set()
-    for (order, item) in enumerate(iter(task.dataset)):
-        task_queue.add(asyncio.create_task(task.process(item, order, semaphore, bar)))
-        if task_queue.__len__() > args.concurrency * 2:
-            while task_queue.__len__() > args.concurrency * 1.5:
-                _, task_queue = await asyncio.wait(task_queue, timeout=3)
+    if isinstance(task.dataset, dict):
+        for config in task.dataset.keys():
+            for (order, item) in enumerate(iter(task.dataset[config])):
+                task_queue.add(asyncio.create_task(task.process(item, order, semaphore, bar, config)))
+                if task_queue.__len__() > args.concurrency * 2:
+                    while task_queue.__len__() > args.concurrency * 1.5:
+                        _, task_queue = await asyncio.wait(task_queue, timeout=3)
+    else:
+        for (order, item) in enumerate(iter(task.dataset)):
+            task_queue.add(asyncio.create_task(task.process(item, order, semaphore, bar)))
+            if task_queue.__len__() > args.concurrency * 2:
+                while task_queue.__len__() > args.concurrency * 1.5:
+                    _, task_queue = await asyncio.wait(task_queue, timeout=3)
     await asyncio.wait(task_queue)
 
 
