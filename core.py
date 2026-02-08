@@ -6,7 +6,7 @@ from datasets import IterableDataset, Dataset
 
 
 class InferenceTask(ABC):
-    dataset: IterableDataset | Dataset | range | list | dict[str, IterableDataset | Dataset]
+    dataset: IterableDataset | Dataset | range | list
 
     @abstractmethod
     def __init__(self):
@@ -21,5 +21,5 @@ class InferenceTask(ABC):
         pass
 
     @abstractmethod
-    async def process(self, data, order: int, sem: Semaphore, bar: tqdm.tqdm, config: str = "default"):
+    async def process(self, data, order: int, sem: Semaphore, bar: tqdm.tqdm):
         pass
