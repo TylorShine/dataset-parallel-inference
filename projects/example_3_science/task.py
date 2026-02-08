@@ -13,7 +13,7 @@ from openai import AsyncOpenAI, OpenAIError
 from core import InferenceTask
 from asyncio import Semaphore
 
-from projects.example_3_chat.model import RootModel
+from projects.example_3_writing.model import RootModel
 
 
 class Task(InferenceTask):
