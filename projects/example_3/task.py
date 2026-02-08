@@ -19,7 +19,7 @@ class Task(InferenceTask):
         self._db = sqlite3.connect(path.join(dirname(__file__), "db.sqlite"))
         self._cur = self._db.cursor()
         self.dataset = {
-            c: load_dataset("NovelHacja/RubricHub_v1_config", c, split="train", streaming=False).select(range(3))
+            c: load_dataset("NovelHacja/RubricHub_v1_config", c, split="train", streaming=False)
             for c in ["chat", "instruction_following", "medical", "science", "writing"]
         }
         for c in self.dataset.keys():
@@ -31,7 +31,6 @@ class Task(InferenceTask):
         self.temperature = 0.5
 
     def get_length(self) -> int:
-        # return sum(map(lambda x: x.info.splits["train"].num_examples, self.dataset.values()))
         # streaming==Falseと仮定
         return sum(map(lambda x: len(x), self.dataset.values()))
 
@@ -58,7 +57,7 @@ class Task(InferenceTask):
                     # "Rubrics" がデコードできないか存在しない場合は "prompts" と "reward_model" を取得
                     input_json_str = json.dumps({"prompts": data["prompts"], "reward_model": data["reward_model"]}, ensure_ascii=False, separators=(",", ":"))
 
-            original_json = data["extra_info"].copy()
+            original_json = data.copy()
             translated_json = None
             reasoning_text = None
 
