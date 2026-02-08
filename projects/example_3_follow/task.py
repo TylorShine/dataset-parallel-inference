@@ -21,7 +21,7 @@ class Task(InferenceTask):
         self._db = sqlite3.connect(path.join(dirname(__file__), "db.sqlite"))
         self._cur = self._db.cursor()
         self._db_write_sem = Semaphore(value=1)
-        self.dataset = load_dataset("NovelHacja/RubricHub_v1_config", "instruction_following", split="train", streaming=False).select(range(2))
+        self.dataset = load_dataset("NovelHacja/RubricHub_v1_config", "instruction_following", split="train", streaming=False)
         self._cur.execute(f"CREATE TABLE IF NOT EXISTS result(id INT PRIMARY KEY,content TEXT,source TEXT,reasoning TEXT);")
         self._replace_keys = ["prompt", "reward_model", "Rubrics:reward_model.rubrics"]
         load_dotenv(path.join(dirname(__file__), ".env"))
