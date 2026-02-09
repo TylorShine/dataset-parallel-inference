@@ -9,11 +9,12 @@ import tqdm
 from datasets import load_dataset
 from dotenv import load_dotenv
 from openai import AsyncOpenAI, OpenAIError
+from openai.types.chat import ChatCompletionSystemMessageParam, ChatCompletionUserMessageParam
 
 from core import InferenceTask
 from asyncio import Semaphore
 
-from projects.example_3_writing.model import RootModel
+from projects.example_3_science.model import RootModel
 
 
 class Task(InferenceTask):
@@ -60,32 +61,41 @@ class Task(InferenceTask):
 
             if original_obj != None:
                 sleep_time = 2.0
+                if "/" not in os.environ["MODEL_NAME"]:
+                    model_provider_text = ""
+                    model_name = os.environ["MODEL_NAME"]
+                else:
+                    model_provider, model_name = os.environ["MODEL_NAME"].split("/")[:2]
+                    model_provider_text = f"{model_provider}製の"
+                
+                system_string = f"あなたは{model_provider_text}大規模言語モデル、{model_name}です。広範な知識を伴う言語理解力やユーザ指示への忠実性に秀でており、完全な回答を提供します。"
+                chat_string = f'続くJSONのデータのフィールド`"content"`と`"criterion"`の値のみを、構造をそのままに、全ての文を省略無しで正確に日本語へと翻訳してください。ただし、特に日本語に翻訳したことによって生じる可能性もある`"criterion"`の矛盾は解決してください。`"criterion"`の内容は"`"content"`の回答に対する評価基準"です。JSONのみ出力すること。:\n\n{input_json_str}'
+                prompt = [
+                    ChatCompletionSystemMessageParam(
+                        content=system_string,
+                        role="system"
+                    ),
+                    ChatCompletionUserMessageParam(
+                        content=chat_string,
+                        role="user"
+                    ),
+                ]
+                
                 while True:
                     try:
-                        if "/" not in os.environ["MODEL_NAME"]:
-                            model_provider_text = ""
-                            model_name = os.environ["MODEL_NAME"]
-                        else:
-                            model_provider, model_name = os.environ["MODEL_NAME"].split("/")[:2]
-                            model_provider_text = f"{model_provider}製の"
-                        system_string = f"あなたは{model_provider_text}大規模言語モデル、{model_name}です。広範な知識を伴う言語理解力やユーザ指示への忠実性に秀でており、完全な回答を提供します。"
-                        chat_string = f'続くJSONのデータのフィールド`"content"`と`"criterion"`の値のみを、構造をそのままに、全ての文を省略無しで正確に日本語へと翻訳してください。ただし、特に日本語に翻訳したことによって生じる可能性もある`"criterion"`の矛盾は解決してください。`"criterion"`の内容は"`"content"`の回答に対する評価基準"です。JSONのみ出力すること。:\n\n{input_json_str}'
                         # print(f"{chat_string}")
 
-                        resp = await self._client.responses.parse(
-                            input=[
-                                {"role": "system", "content": system_string},
-                                {"role": "user", "content": chat_string}
-                            ],
-                            text_format=RootModel,
+                        resp = await self._client.chat.completions.parse(
+                            messages=prompt,
+                            response_format=RootModel,
                             model=os.environ["MODEL_NAME"],
                             temperature=self._temperature,
                             extra_body={"separate_reasoning": True},
-                            reasoning={"effort": "medium"},
+                            reasoning_effort="medium",
                         )
-                        if resp.output_parsed is None:
+                        if resp.choices[0].message.parsed is None:
                             raise ValueError("Failed to parse response, output_parsed is None")
-                        translated_resp: dict[str, Any] = resp.output_parsed.model_dump()
+                        translated_resp: dict[str, Any] = resp.choices[0].message.parsed.model_dump()
                         translated_obj = original_obj.copy()
                         
                         for key in self._replace_keys:
@@ -105,11 +115,9 @@ class Task(InferenceTask):
                             else:
                                 raise ValueError(f"key {key} not found in translated message")
                             
+                        # print(f"reasoning: {resp.choices[0].message.reasoning}")
                         # reasoningの文字列を取得
-                        reasoning_text = [m.content for m in resp.output if m.type == "reasoning"][0]
-                        reasoning_text = None if reasoning_text is None else reasoning_text[0]
-                        reasoning_text = "" if "text" not in reasoning_text.keys() else reasoning_text["text"]
-                        # print(f"reasoning: {reasoning_text}")
+                        reasoning_text = resp.choices[0].message.reasoning
                         break
                     except OpenAIError as e:
                         if sleep_time > 16.0:
@@ -124,7 +132,6 @@ class Task(InferenceTask):
                             break
                         print(f"JSON Error: {e}")
                         await asyncio.sleep(sleep_time)
-                        sleep_time = sleep_time ** 2
                 # print(json.dumps(translated_obj, ensure_ascii=False))
         async with self._db_write_sem:
             self._cur.execute(f"REPLACE INTO result(id, content, source, reasoning) VALUES (?,?,?,?);",
