@@ -14,7 +14,7 @@ from openai.types.chat import ChatCompletionSystemMessageParam, ChatCompletionUs
 from core import InferenceTask
 from asyncio import Semaphore
 
-from projects.example_3_science.model import RootModel
+from projects.example_3_chat.model import RootModel
 
 
 class Task(InferenceTask):
