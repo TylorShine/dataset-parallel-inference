@@ -117,7 +117,9 @@ class Task(InferenceTask):
                             
                         # print(f"reasoning: {resp.choices[0].message.reasoning}")
                         # reasoningの文字列を取得
-                        reasoning_text = resp.choices[0].message.reasoning
+                        reasoning_text = getattr(resp.choices[0].message, "reasoning", None)
+                        if reasoning_text is None:
+                            reasoning_text = getattr(resp.choices[0].message, "reasoning_content", None)
                         break
                     except OpenAIError as e:
                         if sleep_time > 16.0:
