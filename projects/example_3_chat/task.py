@@ -25,6 +25,17 @@ class Task(InferenceTask):
         self.dataset = load_dataset("NovelHacja/RubricHub_v1_config", "chat", split="train", streaming=False)
         self._cur.execute(f"CREATE TABLE IF NOT EXISTS result(id INT PRIMARY KEY,content TEXT,source TEXT,reasoning TEXT);")
         self._replace_keys = ["prompt", "reward_model", "Rubrics:reward_model.rubrics"]
+        self._chat_strings = [
+            '続くJSONのデータのフィールド`"content"`と`"criterion"`の値のみを、構造をそのままに、全ての文を省略無しで正確に日本語へと翻訳してください。' +
+                'ただし、特に日本語に翻訳したことによって生じる可能性もある`"criterion"`の矛盾は解決してください。' +
+                '`"criterion"`の内容は"`"content"`の回答に対する評価基準"です。JSONのみ出力すること。:\n\n{input_json_str}',
+            '続くJSONのデータのフィールド`"content"`と`"criterion"`の値のみを、構造をそのままに、全ての文を省略無しで正確に日本語へと翻訳してください。' +
+                'ただし、`"criterion"`に矛盾が発生している場合は解決してください。' +
+                '`"criterion"`の内容は"`"content"`に対する回答を判定するための評価基準"です。JSONのみ出力すること。:\n\n{input_json_str}',
+            '続くJSONのデータのフィールド`"content"`と`"criterion"`の値のみを、構造をそのままに、省略せず正確に日本語へと翻訳してください。' +
+                'ただし、`"criterion"`に矛盾がある場合は解決してください。' +
+                '`"criterion"`の内容は"`"content"`に対する回答の質を判断するための評価基準"です。JSONのみ出力すること。:\n\n{input_json_str}',
+        ]
         load_dotenv(path.join(dirname(__file__), ".env"))
         self._client = AsyncOpenAI(api_key=os.environ["API_KEY"], base_url=os.environ["BASE_URL"], timeout=None)
         self._temperature = 0.5
@@ -69,20 +80,23 @@ class Task(InferenceTask):
                     model_provider_text = f"{model_provider}製の"
                 
                 system_string = f"あなたは{model_provider_text}大規模言語モデル、{model_name}です。広範な知識を伴う言語理解力やユーザ指示への忠実性に秀でており、完全な回答を提供します。"
-                chat_string = f'続くJSONのデータのフィールド`"content"`と`"criterion"`の値のみを、構造をそのままに、全ての文を省略無しで正確に日本語へと翻訳してください。ただし、特に日本語に翻訳したことによって生じる可能性もある`"criterion"`の矛盾は解決してください。`"criterion"`の内容は"`"content"`の回答に対する評価基準"です。JSONのみ出力すること。:\n\n{input_json_str}'
-                prompt = [
-                    ChatCompletionSystemMessageParam(
-                        content=system_string,
-                        role="system"
-                    ),
-                    ChatCompletionUserMessageParam(
-                        content=chat_string,
-                        role="user"
-                    ),
-                ]
                 
+                max_parse_error_count = 3
+                retry_count_by_parse_error = 0
                 while True:
                     try:
+                        chat_str_index = int(retry_count_by_parse_error // len(self._chat_strings)) % len(self._chat_strings)
+                        chat_string = self._chat_strings[chat_str_index].format(input_json_str=input_json_str)
+                        prompt = [
+                            ChatCompletionSystemMessageParam(
+                                content=system_string,
+                                role="system"
+                            ),
+                            ChatCompletionUserMessageParam(
+                                content=chat_string,
+                                role="user"
+                            ),
+                        ]
                         # print(f"{chat_string}")
 
                         resp = await self._client.chat.completions.parse(
@@ -124,16 +138,19 @@ class Task(InferenceTask):
                     except OpenAIError as e:
                         if sleep_time > 16.0:
                             translated_obj = {"role": "assistant", "content": "<-- output is missing -->"}
+                            print(f"OpenAI API Error: {e}, retry limit exceeded. index: [{order}]")
                             break
                         print(f"OpenAI API Error: {e}")
                         await asyncio.sleep(sleep_time)
-                        sleep_time = sleep_time ** 2
-                    except (json.JSONDecodeError, ValueError) as e:
-                        if sleep_time > 16.0:
-                            translated_obj = {"role": "assistant", "content": "<-- output is missing JSON -->"}
-                            break
+                        sleep_time = sleep_time * 2
+                    except (json.JSONDecodeError, KeyError, ValueError) as e:
+                        if retry_count_by_parse_error < max_parse_error_count * len(self._chat_strings):
+                            retry_count_by_parse_error += 1
+                            print(f"Retrying due to parse error: {e}")
+                            continue
+                        translated_obj = {"role": "assistant", "content": "<-- output is missing JSON -->"}
                         print(f"JSON Error: {e}")
-                        await asyncio.sleep(sleep_time)
+                        break
                 # print(json.dumps(translated_obj, ensure_ascii=False))
         async with self._db_write_sem:
             self._cur.execute(f"REPLACE INTO result(id, content, source, reasoning) VALUES (?,?,?,?);",
