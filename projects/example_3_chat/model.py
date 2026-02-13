@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Any
 from pydantic import BaseModel, Field
 
 # ----------------------------------------------------------------------
@@ -7,11 +7,46 @@ from pydantic import BaseModel, Field
 class RubricParameters(BaseModel):
     """Parameters used by the rubric verifier."""
     N: Optional[int] = None  # the original JSON had `null` for N
+    capital_frequency: Optional[Any] = None
+    capital_relation: Optional[Any] = None
+    end_phrase: Optional[Any] = None
+    first_word: Optional[Any] = None
+    forbidden_words: Optional[Any] = None
+    frequency: Optional[Any] = None
+    keyword: Optional[Any] = None
+    keyword1: Optional[Any] = None
+    keyword2: Optional[Any] = None
+    keywords: Optional[Any] = None
+    language: Optional[Any] = None
+    last_word: Optional[Any] = None
+    let_frequency: Optional[Any] = None
+    let_relation: Optional[Any] = None
+    letter: Optional[Any] = None
+    m: Optional[Any] = None
+    n: Optional[Any] = None
+    n_end: Optional[Any] = None
+    n_sent: Optional[Any] = None
+    n_start: Optional[Any] = None
+    n_words: Optional[Any] = None
+    nth_paragraph: Optional[Any] = None
+    num_bullets: Optional[Any] = None
+    num_highlights: Optional[Any] = None
+    num_paragraphs: Optional[Any] = None
+    num_placeholders: Optional[Any] = None
+    num_sections: Optional[Any] = None
+    num_sentences: Optional[Any] = None
+    num_words: Optional[Any] = None
+    phrase: Optional[Any] = None
+    postscript_marker: Optional[Any] = None
+    prompt_to_repeat: Optional[Any] = None
+    relation: Optional[Any] = None
+    section_spliter: Optional[Any] = None
+    small_n: Optional[Any] = None
 
 class RubricTags(BaseModel):
     """Tags associated with a rubric criterion."""
     function: str = ""                     # ``function`` field name is highlighted with backticks
-    parameters: RubricParameters
+    parameters: Optional[RubricParameters]
     verifier: str = "llm"
 
 # ----------------------------------------------------------------------
