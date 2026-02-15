@@ -33,22 +33,31 @@ def calculate_prompt_length(data: dict) -> int:
     """
     try:
         # "extra_info" は dict型
-        input_json_str = json.dumps(data["extra_info"], ensure_ascii=False, separators=(",", ":"))
-    except (KeyError, ValueError):
-        # "extra_info" がデコードできない場合は "prompt" と "reward_model", "Rubrics" を取得
-        try:
-            input_json_str = json.dumps(
-                {"prompt": data["prompt"], "reward_model": data["reward_model"], "rubrics": data["Rubrics"]}, 
-                ensure_ascii=False, 
-                separators=(",", ":")
-            )
-        except (KeyError, ValueError):
-            # "Rubrics" がデコードできないか存在しない場合は "prompts" と "reward_model" を取得
-            input_json_str = json.dumps(
-                {"prompt": data["prompt"], "reward_model": data["reward_model"]}, 
-                ensure_ascii=False, 
-                separators=(",", ":")
-            )
+        if "extra_info" in data and data["extra_info"] is not None:
+            input_json_str = json.dumps(data["extra_info"], ensure_ascii=False, separators=(",", ":"))
+        else:
+            raise KeyError("extra_info")
+    except (KeyError, ValueError, TypeError):
+        # "extra_info" が存在しないかデコードできない場合は他のキーを試行
+        prompt = data.get("prompt") or data.get("query")
+        reward_model = data.get("reward_model")
+        rubrics = data.get("Rubrics") or data.get("rubrics")
+        
+        if prompt is not None:
+            # 取得できたキーで構成する
+            obj = {"prompt": prompt}
+            if reward_model is not None:
+                obj["reward_model"] = reward_model
+            if rubrics is not None:
+                obj["rubrics"] = rubrics
+            
+            input_json_str = json.dumps(obj, ensure_ascii=False, separators=(",", ":"))
+        else:
+            # 何も取得できない場合はデータ全体をダンプ（フォールバック）
+            try:
+                input_json_str = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+            except (ValueError, TypeError):
+                input_json_str = ""
     
     return len(input_json_str)
 
@@ -268,8 +277,9 @@ Examples:
             continue
     
     # Print summary comparison (only if analyzing multiple datasets)
-    if all_stats and len(dataset_configs) > 1:
-        print_summary_table(all_stats, all_lengths, dataset_configs)
+    successful_configs = [c for c in dataset_configs if c in all_stats]
+    if all_stats and len(successful_configs) > 1:
+        print_summary_table(all_stats, all_lengths, successful_configs)
     
     print(f"\n{'='*80}")
     print("Analysis complete!")

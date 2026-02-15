@@ -27,7 +27,7 @@ class Task(InferenceTask):
         self._cur.execute(f"CREATE TABLE IF NOT EXISTS result(id INT PRIMARY KEY,content TEXT,source TEXT,reasoning TEXT);")
         self._replace_keys = ["prompt", "reward_model", "Rubrics:reward_model.rubrics"]
         self._long_str_threshold = 2500
-        self._extremely_long_prompt_threshold = 10000
+        self._extremely_long_prompt_threshold = float("inf")
         load_dotenv(path.join(dirname(__file__), ".env"))
         self._client = AsyncOpenAI(api_key=os.environ["API_KEY"], base_url=os.environ["BASE_URL"], timeout=None)
         self._temperature = 0.5
