@@ -99,7 +99,7 @@ class Task(InferenceTask):
                         if jsonpath_ng.parse(_path).find(input_json).__len__() == 0:
                             _unexisting_paths.append(_path)
                     for _path in resp.choices[0].message.parsed.json_paths:
-                        if jsonpath_ng.parse(_path).find(input_json).__len__() == 0 and \
+                        if jsonpath_ng.parse(_path).find(input_json).__len__() != 0 or \
                                 not isinstance(jsonpath_ng.parse(_path).find(input_json)[0], str):
                             _unexpected_paths.append(_path)
                     messages.append(ChatCompletionUserMessageParam(
