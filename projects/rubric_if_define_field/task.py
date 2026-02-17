@@ -32,7 +32,7 @@ class Task(InferenceTask):
                                      glob.glob(path.join(dirname(__file__), "functions", "*.py"))}
 
     def get_length(self) -> int:
-        return self.dataset.info.splits["chat_if"].num_examples
+        return self.dataset.info.splits["train"].num_examples
 
     def __del__(self):
         self._db.commit()
