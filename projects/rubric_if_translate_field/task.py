@@ -81,7 +81,10 @@ class Task(InferenceTask):
                         resp_1 = await self._client.chat.completions.create(
                             messages=[{"role": "user", "content": prompt}],
                             model=os.environ["MODEL_NAME"],
-                            chat_template_kwargs={"enable_thinking":False},
+                            extra_body={
+                                "top_k": 20,
+                                "chat_template_kwargs": {"enable_thinking": False},
+                            }, 
                             temperature=0.7,
                             top_p=0.8,
                         )
@@ -92,7 +95,10 @@ class Task(InferenceTask):
                                 {"role": "user", "content": "推敲をもとに、全文の和訳のみを出力してください。"}
                             ],
                             model=os.environ["MODEL_NAME"],
-                            chat_template_kwargs={"enable_thinking":False},
+                            extra_body={
+                                "top_k": 20,
+                                "chat_template_kwargs": {"enable_thinking": False},
+                            }, 
                             temperature=0.7, 
                             top_p=0.8,
                         )
