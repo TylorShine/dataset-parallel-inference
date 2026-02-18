@@ -28,6 +28,7 @@ class Task(InferenceTask):
                                          "rubric_if_define_field", "functions", "*.py"
                                      ).__str__())}
         self.dataset = range(self.get_length())
+        load_dotenv(path.join(dirname(__file__), ".env"))
 
     def get_length(self) -> int:
         return self._cur.execute("SELECT COUNT(*) FROM result;").fetchone()[0]
