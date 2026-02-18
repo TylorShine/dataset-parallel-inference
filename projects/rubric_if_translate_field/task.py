@@ -86,9 +86,9 @@ class Task(InferenceTask):
                         )
                         resp_2 = await self._client.chat.completions.create(
                             messages=[
-                                {"role": "user", "content": prompt},
-                                {"role": "assistant", "content": resp_1.choices[0].message.content},
-                                {"role": "user", "content": "推敲をもとに、全文の和訳のみを出力してください。"}
+                                {"role": "user", "content": {"type": "input_text", "text": prompt}},
+                                {"role": "assistant", "content": {"type": "input_text", "text": resp_1.choices[0].message.content}},
+                                {"role": "user", "content": {"type": "input_text", "text": "推敲をもとに、全文の和訳のみを出力してください。"}}
                             ],
                             model=os.environ["MODEL_NAME"],
                             extra_body={"separate_reasoning": True},
