@@ -79,10 +79,7 @@ class Task(InferenceTask):
                 while True:
                     try:
                         resp_1 = await self._client.chat.completions.create(
-                            messages=ChatCompletionUserMessageParam(
-                                content=prompt,
-                                role="user"
-                            ),
+                            messages=[{"role": "user", "content": prompt}],
                             model=os.environ["MODEL_NAME"],
                             extra_body={"separate_reasoning": True},
                             reasoning_effort="none",
