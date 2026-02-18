@@ -81,8 +81,9 @@ class Task(InferenceTask):
                         resp_1 = await self._client.chat.completions.create(
                             messages=[{"role": "user", "content": prompt}],
                             model=os.environ["MODEL_NAME"],
-                            extra_body={"separate_reasoning": True},
-                            reasoning_effort="none",
+                            "chat_template_kwargs": {"enable_thinking": False},
+                            temperature=0.7,
+                            top_p=0.8,
                         )
                         resp_2 = await self._client.chat.completions.create(
                             messages=[
@@ -91,8 +92,9 @@ class Task(InferenceTask):
                                 {"role": "user", "content": "推敲をもとに、全文の和訳のみを出力してください。"}
                             ],
                             model=os.environ["MODEL_NAME"],
-                            extra_body={"separate_reasoning": True},
-                            reasoning_effort="none",
+                            "chat_template_kwargs": {"enable_thinking": False},
+                            temperature=0.7, 
+                            top_p=0.8,
                         )
                         break
                     except (OpenAIError, ValueError) as e:
