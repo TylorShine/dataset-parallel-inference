@@ -54,6 +54,9 @@ class Task(InferenceTask):
             input_string = json.loads(
                 self._cur.execute("SELECT source FROM result WHERE id = ?;", (order,)).fetchone()[0]
             )
+            if json.dumps(input_string, ensure_ascii=False).__len__() > 30000:
+                bar.update(1)
+                return
             _contents = []
             _reasons = []
             _positions = []
@@ -86,9 +89,9 @@ class Task(InferenceTask):
                         )
                         resp_2 = await self._client.chat.completions.create(
                             messages=[
-                                {"role": "user", "content": {"type": "input_text", "text": prompt}},
-                                {"role": "assistant", "content": {"type": "input_text", "text": resp_1.choices[0].message.content}},
-                                {"role": "user", "content": {"type": "input_text", "text": "推敲をもとに、全文の和訳のみを出力してください。"}}
+                                {"role": "user", "content": prompt},
+                                {"role": "assistant", "content": resp_1.choices[0].message.content},
+                                {"role": "user", "content": "推敲をもとに、全文の和訳のみを出力してください。"}
                             ],
                             model=os.environ["MODEL_NAME"],
                             extra_body={"separate_reasoning": True},
