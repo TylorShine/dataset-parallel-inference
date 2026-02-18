@@ -27,6 +27,7 @@ class Task(InferenceTask):
                                      glob.glob(Path(__file__).parent.parent.joinpath(
                                          "rubric_if_define_field", "functions", "*.py"
                                      ).__str__())}
+        self.dataset = range(self.get_length())
 
     def get_length(self) -> int:
         return self._cur.execute("SELECT COUNT(*) FROM result;").fetchone()[0]
