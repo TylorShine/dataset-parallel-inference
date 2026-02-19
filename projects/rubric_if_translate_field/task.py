@@ -1,3 +1,4 @@
+import ast
 import glob
 import json
 import os
@@ -6,6 +7,7 @@ import asyncio
 from os import path
 from os.path import dirname, basename
 from pathlib import Path
+from typing import Iterator
 
 import jsonpath_ng
 import tqdm
@@ -16,6 +18,18 @@ from core import InferenceTask
 from asyncio import Semaphore
 
 
+def _parse_function_definitions(_paths: Iterator[Path]) -> dict[str, list[str]]:
+    _ret = dict()
+    for _path in _paths:
+        for _item in ast.parse(_path.read_text()).body[0].body:
+            if isinstance(_item, ast.FunctionDef):
+                if _item.name == "build_description":
+                    args = [a.arg for a in _item.args.args]
+                    args.remove("self")
+                    _ret[ast.parse(_path.read_text()).body[0].name] = args
+    return _ret
+
+
 class Task(InferenceTask):
     def __init__(self):
         self._db = sqlite3.connect(Path(__file__).parent.parent.joinpath("rubric_if_define_field", "db.sqlite"))
@@ -23,10 +37,7 @@ class Task(InferenceTask):
         self._cur.execute("CREATE TABLE IF NOT EXISTS translate(id INT PRIMARY KEY,content TEXT,reason TEXT);")
         load_dotenv(path.join(dirname(__file__), ".env"))
         self._client = AsyncOpenAI(api_key=os.environ["API_KEY"], base_url=os.environ["BASE_URL"], timeout=None)
-        self.function_definitions = {basename(_file).removesuffix(".py") for _file in
-                                     glob.glob(Path(__file__).parent.parent.joinpath(
-                                         "rubric_if_define_field", "functions", "*.py"
-                                     ).__str__())}
+        self.function_definitions = _parse_function_definitions(Path(__file__).parent.joinpath("functions").glob("*.py"))
         self.dataset = range(self.get_length())
         load_dotenv(path.join(dirname(__file__), ".env"))
 
@@ -79,17 +90,17 @@ class Task(InferenceTask):
                 while True:
                     try:
                         resp_1 = await self._client.chat.completions.create(
-                            messages=[{"role": "user", "content": prompt}],
+                            messages=[{"role": "user", "content": prompt}],  # noqa
                             model=os.environ["MODEL_NAME"],
                             extra_body={
                                 "top_k": 20,
                                 "chat_template_kwargs": {"enable_thinking": False},
-                            }, 
+                            },
                             temperature=0.7,
                             top_p=0.8,
                         )
                         resp_2 = await self._client.chat.completions.create(
-                            messages=[
+                            messages=[  # noqa
                                 {"role": "user", "content": prompt},
                                 {"role": "assistant", "content": resp_1.choices[0].message.content},
                                 {"role": "user", "content": "推敲をもとに、全文の和訳のみを出力してください。"}
@@ -98,8 +109,8 @@ class Task(InferenceTask):
                             extra_body={
                                 "top_k": 20,
                                 "chat_template_kwargs": {"enable_thinking": False},
-                            }, 
-                            temperature=0.7, 
+                            },
+                            temperature=0.7,
                             top_p=0.8,
                         )
                         break

@@ -64,6 +64,8 @@ class Task(InferenceTask):
             翻訳する必要のあるフィールドをJSONPathの形式のテキストのリストで全て列挙してください。必ずルート記述子`$`をつけてください。
             翻訳する必要のあるフィールドは全て文字列型です。
             フィルタ演算やワイルドカードを用いず、単純な子孫アクセスや配列アクセスのみを用いて、翻訳する必要のあるフィールドを特定してください。
+            翻訳する必要のあるフィールドは、
+            `$.prompt[*].role`,`$.reward_model.rubrics[*].tags.function`,`$.reward_model.rubrics[*].tags.verifier`
             """
             _functions = []
             for _function in jsonpath_ng.parse("$.reward_model.rubrics[*].function").find(input_json):
