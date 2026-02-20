@@ -81,7 +81,7 @@ class Task(InferenceTask):
 
  - 人名・固有名詞については翻訳せず、原文での表記のまま書くこと。
  - 原文に忠実に翻訳し、原文に存在する情報を欠落させたり、書かれていないことを付け加えないこと。
- - 原文の雰囲気や文脈に基づいて翻訳すること。
+ - 翻訳履歴を参照し、原文の雰囲気や文脈に基づいて一貫性のある翻訳すること。
  - 推敲とは原文の文脈を分析し、次に多義語の選択肢を挙げ、最後に最も適切な表現を決定するプロセスを順を追って説明することです。
  - 最終的な翻訳結果自体は出力しないでください。"""
             if json.dumps(data, ensure_ascii=False).__len__() > 30000:
@@ -106,8 +106,11 @@ class Task(InferenceTask):
                 sleep_time = 4.0
                 while True:
                     try:
-                        resp_1 = await self._client.responses.create(
-                            input=prompt,  # noqa
+                        resp_1 = await self._client.chat.completions.create(
+                            messages=ChatCompletionUserMessageParam(
+                                content=prompt,
+                                role="user"
+                            ),
                             model=os.environ["MODEL_NAME"],
                             extra_body={
                                 "top_k": 20,
@@ -116,9 +119,18 @@ class Task(InferenceTask):
                             temperature=0.7,
                             top_p=0.8,
                         )
-                        resp_2 = await self._client.responses.create(
-                            previous_response_id=resp_1.id,
-                            input="推敲をもとに、全文の和訳のみを出力してください。",
+                        resp_2 = await self._client.chat.completions.create(
+                            messages=[
+                                ChatCompletionUserMessageParam(
+                                    content=prompt,
+                                    role="user"
+                                ),
+                                resp_1.choices[0].message,
+                                ChatCompletionUserMessageParam(
+                                    content="推敲をもとに、全文の和訳のみを出力してください。",
+                                    role="user"
+                                )
+                            ],
                             model=os.environ["MODEL_NAME"],
                             extra_body={
                                 "top_k": 20,
@@ -135,8 +147,8 @@ class Task(InferenceTask):
                             return
                         await asyncio.sleep(sleep_time)
                         sleep_time *= 2
-                _contents.append(resp_2.output_text)
-                _reasons.append(resp_1.output_text)
+                _contents.append(resp_2.choices[0].message.content)
+                _reasons.append(resp_1.choices[0].message.content)
             self._cur.execute("REPLACE INTO translate(id, content, loc, source, reason) VALUES (?,?,?,?,?);", (
                 order,
                 json.dumps(_contents, ensure_ascii=False),
