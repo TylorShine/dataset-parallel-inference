@@ -81,7 +81,7 @@ class Task(InferenceTask):
 
  - 人名・固有名詞については翻訳せず、原文での表記のまま書くこと。
  - 原文に忠実に翻訳し、原文に存在する情報を欠落させたり、書かれていないことを付け加えないこと。
- - 翻訳履歴を参照し、原文の雰囲気や文脈に基づいて一貫性のある翻訳すること。
+ - 翻訳履歴を参照し、原文の雰囲気や文脈に基づいて一貫性のある翻訳を作成すること。
  - 推敲とは原文の文脈を分析し、次に多義語の選択肢を挙げ、最後に最も適切な表現を決定するプロセスを順を追って説明することです。
  - 最終的な翻訳結果自体は出力しないでください。"""
             if json.dumps(data, ensure_ascii=False).__len__() > 30000:
@@ -107,10 +107,10 @@ class Task(InferenceTask):
                 while True:
                     try:
                         resp_1 = await self._client.chat.completions.create(
-                            messages=ChatCompletionUserMessageParam(
+                            messages=[ChatCompletionUserMessageParam(
                                 content=prompt,
                                 role="user"
-                            ),
+                            )],
                             model=os.environ["MODEL_NAME"],
                             extra_body={
                                 "top_k": 20,
