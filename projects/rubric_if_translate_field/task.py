@@ -34,12 +34,12 @@ def _parse_function_definitions(_paths: Iterator[Path]) -> dict[str, list[str]]:
 def _define_fields(json_obj: dict, available_args: dict[str, list[str]]) -> list[str]:
     _fields = []
     if "prompt" in json_obj.keys():
-        for order, _ in enumerate(json_obj["prompt"].values()):
+        for order, _ in enumerate(json_obj["prompt"]):
             _fields.append(f"$.prompt[{order}].content")
     if "reward_model" in json_obj.keys():
         for order, _rubric in enumerate(json_obj["reward_model"]["rubrics"]):
             if _rubric["tags"]["verifier"] == "llm":
-                _fields.append(f"$.reward_model.rubrics[{order}].tags.criterion")
+                _fields.append(f"$.reward_model.rubrics[{order}].criterion")
             if _rubric["tags"]["function"] in available_args.keys():
                 for _arg in available_args[_rubric["tags"]["function"]]:
                     if _rubric["tags"]["parameters"].get(_arg, None) is not None:
