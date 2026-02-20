@@ -1,4 +1,5 @@
 import ast
+import copy
 import glob
 import json
 import os
@@ -77,9 +78,9 @@ class Task(InferenceTask):
             bar.update(1)
             return
         async with sem:
-            elaborate_prompt = """日本語への翻訳タスクです。以降、外国語の翻訳対象の文章が与えられます。その文章を日本語に翻訳するにあたって、注意すべきと思われる点を全ての条件について具体的にどのような訳語を用いるべきかについてまで、確実と言い切れるまで** 何度も **推敲してください。なお、議論にあたっては以下の条件を**遵守**すること。
+            elaborate_prompt = """日本語への翻訳タスクです。以降、外国語の翻訳対象の文章が与えられます。その文章を日本語に翻訳するにあたって、全体的な文脈や方針・注意すべきと思われる点を全ての条件について具体的にどのような訳語を用いるべきかについてまで、確実と言い切れるまで** 何度も **推敲してください。なお、議論にあたっては以下の条件を**遵守**すること。
 
- - 人名・固有名詞については翻訳せず、原文での表記のまま書くこと。
+ - 人名・固有名詞について、原文の表記を用いるか、適切な日本語訳を用いるか、どちらが適切であるか十分に検討し、適切な方を用いよ。
  - 原文に忠実に翻訳し、原文に存在する情報を欠落させたり、書かれていないことを付け加えないこと。
  - 翻訳履歴を参照し、原文の雰囲気や文脈に基づいて一貫性のある翻訳を作成すること。
  - 推敲とは原文の文脈を分析し、次に多義語の選択肢を挙げ、最後に最も適切な表現を決定するプロセスを順を追って説明することです。
@@ -93,9 +94,9 @@ class Task(InferenceTask):
             for _translate_pos in _define_fields(data, self.function_definitions):
                 _positions.append(_translate_pos)
                 subject_txt = jsonpath_ng.parse(_translate_pos).find(data)[0]
-                prompt = f"""以下のデータセットのうち、{_translate_pos}に該当する部分について処理します。
+                prompt = f"""{json.dumps(data, ensure_ascii=False, indent=2)}
 
-{json.dumps(data, ensure_ascii=False, indent=2)}
+上に示すデータセットのうち、{_translate_pos}に該当する部分について処理します。
 
 =======(翻訳の一貫性のための)翻訳履歴=========
 {"\n".join(["\n=======" + _pos + "=========\n" + _cont for _cont, _pos in zip(_contents, _positions)])}
@@ -116,10 +117,10 @@ class Task(InferenceTask):
                                 "top_k": 20,
                                 "chat_template_kwargs": {"enable_thinking": False},
                             },
-                            temperature=0.7,
-                            top_p=0.8,
+                            temperature=0.8,
+                            top_p=0.95,
                         )
-                        resp_2 = await self._client.chat.completions.create(
+                        last_resp = await self._client.chat.completions.create(
                             messages=[
                                 ChatCompletionUserMessageParam(
                                     content=prompt,
@@ -136,7 +137,7 @@ class Task(InferenceTask):
                                 "top_k": 20,
                                 "chat_template_kwargs": {"enable_thinking": False},
                             },
-                            temperature=0.7,
+                            temperature=0.6,
                             top_p=0.8,
                         )
                         break
@@ -147,11 +148,13 @@ class Task(InferenceTask):
                             return
                         await asyncio.sleep(sleep_time)
                         sleep_time *= 2
-                _contents.append(resp_2.choices[0].message.content)
+                _contents.append(last_resp.choices[0].message.content)
                 _reasons.append(resp_1.choices[0].message.content)
+            updated_data = copy.deepcopy(data)
+            [jsonpath_ng.parse(_pos).update(updated_data, _cont) for _cont, _pos in zip(_contents, _positions)]
             self._cur.execute("REPLACE INTO translate(id, content, loc, source, reason) VALUES (?,?,?,?,?);", (
                 order,
-                json.dumps(_contents, ensure_ascii=False),
+                json.dumps(updated_data, ensure_ascii=False),
                 json.dumps(_positions, ensure_ascii=False),
                 json.dumps(data, ensure_ascii=False),
                 json.dumps(_reasons, ensure_ascii=False)
