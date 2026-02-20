@@ -129,8 +129,8 @@ class Task(InferenceTask):
                         )
                         break
                     except (OpenAIError, ValueError) as e:
+                        print(f"OpenAI API Error: {e}")
                         if sleep_time > 32.0:
-                            print(f"OpenAI API Error: {e}")
                             bar.update(1)
                             return
                         await asyncio.sleep(sleep_time)
