@@ -50,7 +50,7 @@ def _define_fields(json_obj: dict, available_args: dict[str, list[str]]) -> list
 
 class Task(InferenceTask):
     def __init__(self):
-        self._db = sqlite3.connect(Path(__file__).joinpath("db.sqlite"))
+        self._db = sqlite3.connect(Path(__file__).parent.joinpath("db.sqlite"))
         self._cur = self._db.cursor()
         self._cur.execute(
             "CREATE TABLE IF NOT EXISTS translate(id INT PRIMARY KEY,content TEXT,loc TEXT,source TEXT,reason TEXT);"
