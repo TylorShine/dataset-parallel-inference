@@ -185,11 +185,6 @@ class Task(InferenceTask):
                             top_p=0.8,
                             # reasoning_effort="none",
                         )
-                        prompts.append(ChatCompletionAssistantMessageParam(
-                            content=last_resp.choices[0].message.content,
-                            role="assistant"
-                        ))
-                        print(json.dumps(prompts, ensure_ascii=False, indent=2))
                         break
                     except (OpenAIError, ValueError) as e:
                         print(f"OpenAI API Error: {e}")
