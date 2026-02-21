@@ -15,7 +15,8 @@ import tqdm
 from datasets import load_dataset
 from dotenv import load_dotenv
 from openai import AsyncOpenAI, OpenAIError
-from openai.types.chat import ChatCompletionUserMessageParam, ChatCompletionAssistantMessageParam
+from openai.types.chat import ChatCompletionUserMessageParam, ChatCompletionAssistantMessageParam, \
+    ChatCompletionMessageParam
 from core import InferenceTask
 from asyncio import Semaphore
 
@@ -107,11 +108,12 @@ class Task(InferenceTask):
                 sleep_time = 4.0
                 while True:
                     try:
+                        prompts: list[ChatCompletionMessageParam] = [ChatCompletionUserMessageParam(
+                            content=prompt,
+                            role="user"
+                        )]
                         resp_1 = await self._client.chat.completions.create(
-                            messages=[ChatCompletionUserMessageParam(
-                                content=prompt,
-                                role="user"
-                            )],
+                            messages=prompts,
                             model=os.environ["MODEL_NAME"],
                             extra_body={
                                 "top_k": 20,
@@ -120,18 +122,35 @@ class Task(InferenceTask):
                             temperature=0.8,
                             top_p=0.95,
                         )
+
+                        prompts.append(ChatCompletionAssistantMessageParam(
+                            content=resp_1.choices[0].message.content,
+                            role="assistant"
+                        ))
+                        prompts.append(ChatCompletionUserMessageParam(
+                            content="本当にすべての項目・注意点に対して検討を行ったか確認し、漏れがあれば再検討してください。",
+                            role="user"
+                        ))
+                        resp_2 = await self._client.chat.completions.create(
+                            messages=prompts,
+                            model=os.environ["MODEL_NAME"],
+                            extra_body={
+                                "top_k": 20,
+                                "chat_template_kwargs": {"enable_thinking": False},
+                            },
+                            temperature=0.8,
+                            top_p=0.95,
+                        )
+                        prompts.append(ChatCompletionAssistantMessageParam(
+                            content=resp_2.choices[0].message.content,
+                            role="assistant"
+                        ))
+                        prompts.append(ChatCompletionUserMessageParam(
+                            content="推敲をもとに、全文の和訳のみを出力してください。",
+                            role="user"
+                        ))
                         last_resp = await self._client.chat.completions.create(
-                            messages=[
-                                ChatCompletionUserMessageParam(
-                                    content=prompt,
-                                    role="user"
-                                ),
-                                resp_1.choices[0].message,
-                                ChatCompletionUserMessageParam(
-                                    content="推敲をもとに、全文の和訳のみを出力してください。",
-                                    role="user"
-                                )
-                            ],
+                            messages=prompts,
                             model=os.environ["MODEL_NAME"],
                             extra_body={
                                 "top_k": 20,
@@ -150,6 +169,7 @@ class Task(InferenceTask):
                         sleep_time *= 2
                 _contents.append(last_resp.choices[0].message.content)
                 _reasons.append(resp_1.choices[0].message.content)
+                _reasons.append(resp_2.choices[0].message.content)
             updated_data = copy.deepcopy(data)
             [jsonpath_ng.parse(_pos).update(updated_data, _cont) for _cont, _pos in zip(_contents, _positions)]
             self._cur.execute("REPLACE INTO translate(id, content, loc, source, reason) VALUES (?,?,?,?,?);", (
