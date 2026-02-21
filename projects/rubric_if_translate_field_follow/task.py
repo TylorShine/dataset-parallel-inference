@@ -60,11 +60,11 @@ class Task(InferenceTask):
         load_dotenv(path.join(dirname(__file__), ".env"))
         self._client = AsyncOpenAI(api_key=os.environ["API_KEY"], base_url=os.environ["BASE_URL"], timeout=None)
         self.function_definitions = _parse_function_definitions(
-            Path(__file__).parent.joinpath("functions").glob("*.py"))
+            Path(__file__).parent.parent.joinpath("rubric_if_define_field", "functions").glob("*.py"))
         self.dataset = load_dataset("NovelHacja/RubricHub_v1_config", "instruction_following", split="train",
                                     streaming=False)
         load_dotenv(path.join(dirname(__file__), ".env"))
-        
+
         if "/" not in os.environ["MODEL_NAME"]:
             model_provider_text = ""
             model_name = os.environ["MODEL_NAME"]
@@ -126,7 +126,7 @@ class Task(InferenceTask):
                 # print(f"  ============== /{order} =============")
                 while True:
                     try:
-                        prompts: list[ChatCompletionMessageParam | ChatCompletionSystemMessageParam] = [
+                        prompts: list[ChatCompletionMessageParam] = [
                             ChatCompletionSystemMessageParam(
                                 content=self._system_prompt,
                                 role="system"
@@ -134,7 +134,7 @@ class Task(InferenceTask):
                             ChatCompletionUserMessageParam(
                                 content=prompt,
                                 role="user"
-                        )]
+                            )]
                         resp_1 = await self._client.chat.completions.create(
                             messages=prompts,
                             model=os.environ["MODEL_NAME"],
@@ -144,7 +144,7 @@ class Task(InferenceTask):
                             },
                             temperature=0.8,
                             top_p=0.95,
-                            reasoning_effort="none",
+                            # reasoning_effort="none",
                         )
 
                         prompts.append(ChatCompletionAssistantMessageParam(
@@ -164,7 +164,7 @@ class Task(InferenceTask):
                             },
                             temperature=0.8,
                             top_p=0.95,
-                            reasoning_effort="none",
+                            # reasoning_effort="none",
                         )
                         prompts.append(ChatCompletionAssistantMessageParam(
                             content=resp_2.choices[0].message.content,
@@ -183,8 +183,13 @@ class Task(InferenceTask):
                             },
                             temperature=0.6,
                             top_p=0.8,
-                            reasoning_effort="none",
+                            # reasoning_effort="none",
                         )
+                        prompts.append(ChatCompletionAssistantMessageParam(
+                            content=last_resp.choices[0].message.content,
+                            role="assistant"
+                        ))
+                        print(json.dumps(prompts, ensure_ascii=False, indent=2))
                         break
                     except (OpenAIError, ValueError) as e:
                         print(f"OpenAI API Error: {e}")
