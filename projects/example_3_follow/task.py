@@ -28,6 +28,7 @@ class Task(InferenceTask):
         self._replace_keys = ["prompt", "reward_model", "Rubrics:reward_model.rubrics"]
         self._long_str_threshold = 2500
         self._extremely_long_prompt_threshold = 16384
+        self._extremely_long_rubrics_threshold = 10000
         load_dotenv(path.join(dirname(__file__), ".env"))
         self._client = AsyncOpenAI(api_key=os.environ["API_KEY"], base_url=os.environ["BASE_URL"], timeout=None)
         self._temperature_planning = 0.7
@@ -45,7 +46,7 @@ class Task(InferenceTask):
                     'as_result': False,
                     'response_format': None,
                     'temperature': self._temperature_planning,
-                    'reasoning_effort': 'none',
+                    'reasoning_effort': 'high',
                 },
                 {
                     'content': 'では、プラン内容を意識して、実際にJSONを日本語に翻訳してください。JSONのみ出力すること。',
@@ -69,7 +70,7 @@ class Task(InferenceTask):
                     'as_result': False,
                     'response_format': None,
                     'temperature': self._temperature_planning,
-                    'reasoning_effort': 'none',
+                    'reasoning_effort': 'high',
                 },
                 {
                     'content': 'では、プラン内容を意識して、実際にJSONを日本語に翻訳してください。JSONのみ出力すること。',
@@ -93,7 +94,7 @@ class Task(InferenceTask):
                     'as_result': False,
                     'response_format': None,
                     'temperature': self._temperature_planning,
-                    'reasoning_effort': 'none',
+                    'reasoning_effort': 'high',
                 },
                 {
                     'content': 'では、プラン内容を意識して、実際にJSONを日本語に翻訳してください。JSONのみ出力すること。',
@@ -117,7 +118,7 @@ class Task(InferenceTask):
                     'as_result': False,
                     'response_format': None,
                     'temperature': self._temperature_planning,
-                    'reasoning_effort': 'none',
+                    'reasoning_effort': 'high',
                 },
                 {
                     'content': 'では、プラン内容を意識して、実際にJSONを日本語に翻訳してください。JSONのみ出力すること。',
@@ -139,7 +140,7 @@ class Task(InferenceTask):
                     'as_result': False,
                     'response_format': None,
                     'temperature': self._temperature_planning,
-                    'reasoning_effort': 'none',
+                    'reasoning_effort': 'high',
                 },
                 {
                     'content': 'では、プラン内容を意識して、実際にJSONを日本語に翻訳してください。JSONのみ出力すること。',
@@ -161,7 +162,7 @@ class Task(InferenceTask):
                     'as_result': False,
                     'response_format': None,
                     'temperature': self._temperature_planning,
-                    'reasoning_effort': 'none',
+                    'reasoning_effort': 'high',
                 },
                 {
                     'content': 'では、プラン内容を意識して、実際にJSONを日本語に翻訳してください。JSONのみ出力すること。',
@@ -187,7 +188,7 @@ class Task(InferenceTask):
                     'as_result': False,
                     'response_format': None,
                     'temperature': self._temperature_planning,
-                    'reasoning_effort': 'none',
+                    'reasoning_effort': 'high',
                 },
                 {
                     'content': 'では、プラン内容を意識して、実際にJSONを日本語に翻訳してください。JSONのみ出力すること。',
@@ -211,7 +212,7 @@ class Task(InferenceTask):
                     'as_result': False,
                     'response_format': None,
                     'temperature': self._temperature_planning,
-                    'reasoning_effort': 'none',
+                    'reasoning_effort': 'high',
                 },
                 {
                     'content': 'では、プラン内容を意識して、実際にJSONを日本語に翻訳してください。JSONのみ出力すること。',
@@ -383,6 +384,12 @@ class Task(InferenceTask):
             except (KeyError, ValueError):
                 # "Rubrics" がデコードできないか存在しない場合は "prompts" と "reward_model" を取得
                 input_json_str = json.dumps({"prompt": data["prompt"], "reward_model": data["reward_model"]}, ensure_ascii=False, separators=(",", ":"))
+                
+        # 極端に長いRubricsだったらスキップ
+        if len(json.dumps(data["Rubrics"], ensure_ascii=False, separators=(",", ":"))) > self._extremely_long_rubrics_threshold:
+            print(f"order[{order}]: Skipping extremely long rubrics (length: {len(json.dumps(data["Rubrics"], ensure_ascii=False, separators=(",", ":")))})")
+            bar.update(1)
+            return
         
         # 極端に長いプロンプトをスキップ
         if len(input_json_str) > self._extremely_long_prompt_threshold:
