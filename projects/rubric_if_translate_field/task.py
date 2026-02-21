@@ -75,6 +75,7 @@ class Task(InferenceTask):
 
     async def process(self, data, order: int, sem: Semaphore, bar: tqdm.tqdm):
         # id列に order の値が存在するか確認、したらスキップ
+        data = data["extra_info"].copy()
         if self._cur.execute("SELECT COUNT(*) FROM translate WHERE id=?;", (order,)).fetchone()[0] > 0:
             bar.update(1)
             return
